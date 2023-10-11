@@ -1,0 +1,101 @@
+# Load packages ----------------------------------------------------------------
+
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(shinythemes)
+
+# Load data --------------------------------------------------------------------
+
+olympics <- read.csv(file = "https://raw.githubusercontent.com/fharahap/test3/main/wbscu23worldcup_battingstats6.csv", header = TRUE, sep = ",")
+
+# Define UI --------------------------------------------------------------------
+
+ui <- fluidPage(theme = shinytheme("flatly"),
+                br(),
+                
+                sidebarLayout(
+                  
+                  # Inputs: Select variables to plot
+                  sidebarPanel(
+                    
+                    tags$br(),
+                    tags$p(
+                      "These data were obtained from",
+                      tags$a("World Baseball & Softball Confederation", href = "https://www.wbsc.org/en/"),"."
+                    ),
+                    tags$p("BATTING STATISTICS OF ALL PLAYERS FOR THE WBSC U23 MEN'S SOFTBALL WORLD CUP 2023 (click and drag to select scatter)"),
+                    
+                    
+                    # Select variable for y-axis
+                    selectInput(
+                      inputId = "y",
+                      label = "Y-Axis",
+                      choices = c("AVG", "OBP", "SLG", "OPS", "Team"),
+                      selected = "AVG"
+                    ),
+                    # Select variable for x-axis
+                    selectInput(
+                      inputId = "x",
+                      label = "X-Axis",
+                      choices = c("RANK", "AVG", "OBP", "SLG", "OPS", "Team"),
+                      selected = "OPS"
+                    ),
+                    
+                    selectInput(
+                      inputId = "z",
+                      label = "Color by:",
+                      choices = c(
+                        "Country" = "Team",
+                        "Final Ranking" = "RANK",
+                        "Round" = "ROUND",
+                        "World Ranking" = "WORLD_RANKING"
+                        
+                      ),
+                      selected = "Country"
+                    ),
+                    
+                    
+                  ),
+                  
+                  # Output: Show scatterplot
+                  mainPanel(
+                    plotOutput(outputId = "scatterplot", brush = "plot_brush"),
+                    DT::dataTableOutput(outputId = "table"),
+                    textOutput(outputId = "correlation"),
+                    br()
+                  )
+                )
+)
+
+# Define server ----------------------------------------------------------------
+
+server <- function(input, output, session) {
+  
+  
+  output$scatterplot <- renderPlot({
+    ggplot(data = olympics, aes_string(
+      x = input$x, y = input$y,
+      color = input$z
+    )) +
+      geom_point()
+  })
+  
+  output$table <- renderDataTable({
+    brushedPoints(olympics, brush = input$plot_brush) %>%
+      select(first_name, last_name, Team, RANK, AB, R, H, RBI, TB, AVG, SLG, OBP, OPS, BB, HBP, SO)
+    
+  })
+  
+  output$correlation <- renderText({
+    r <- round(cor(olympics[, input$x], olympics[, input$y], use = "pairwise"), 3)
+    paste0(
+      "Correlation = ", r,
+      ". Note: If the relationship between the two variables is not linear, the correlation coefficient will not be meaningful."
+    )
+  })
+}
+
+# Create a Shiny app object ----------------------------------------------------
+
+shinyApp(ui = ui, server = server)
